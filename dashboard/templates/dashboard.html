@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Status Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>Patient Status Analytics Dashboard</h1>
+        </header>
+
+        <!-- Main Section: Chart (Left) and KPI Cards (Right) -->
+        <section class="main-section">
+            <!-- Left Side: Patient Status Distribution Chart -->
+            <div class="chart-section">
+                <div class="chart-card">
+                    <h3 class="chart-title">Patient Status Distribution</h3>
+                    <div id="statusPieChart"></div>
+                </div>
+            </div>
+
+            <!-- Right Side: KPI Cards in 2x2 Grid -->
+            <div class="kpi-section">
+                <div class="kpi-card primary">
+                    <h3>Total Patients</h3>
+                    <p class="kpi-value">{{ kpis.total_patients }}</p>
+                </div>
+
+                <div class="kpi-card success">
+                    <h3>Currently Active Patients</h3>
+                    <p class="kpi-value">{{ kpis.currently_active }}</p>
+                </div>
+
+                <div class="kpi-card info">
+                    <h3>Newly Engaged Patients</h3>
+                    <p class="kpi-value">{{ kpis.newly_engaged }}</p>
+                </div>
+
+                <div class="kpi-card warning">
+                    <h3>Reactivated Patients</h3>
+                    <p class="kpi-value">{{ kpis.reactivated_patients }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Charts Section -->
+        <section class="bottom-charts">
+            <div class="chart-card">
+                <h3 class="chart-title">Recent Status Breakdown</h3>
+                <div id="recentStatusBarChart"></div>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="chart-title">Top 10 Stores by Patient Activity</h3>
+                <div id="storeBarChart"></div>
+            </div>
+        </section>
+
+        <section class="full-width-chart">
+            <div class="chart-card">
+                <h3 class="chart-title">Status Transition Timeline</h3>
+                <div id="transitionTimeline"></div>
+            </div>
+        </section>
+
+        <!-- Data Table Section -->
+        <section class="data-table-section">
+            <div class="table-card">
+                <h3 class="table-title">Output Dataset</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Patient ID</th>
+                                <th>Effective Date</th>
+                                <th>Status</th>
+                                <th>Recent Status</th>
+                                <th>Transition Date</th>
+                                <th>Previous Store</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in table_data %}
+                            <tr>
+                                <td>{{ row.entrp_ptnt_id }}</td>
+                                <td>{{ row.eff_dt }}</td>
+                                <td>{{ row.status }}</td>
+                                <td>{{ row.recent_status }}</td>
+                                <td>{{ row.transition_dt }}</td>
+                                <td>{{ row.prev_store_nbr if row.prev_store_nbr else 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>

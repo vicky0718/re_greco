@@ -1,0 +1,104 @@
+from the function effective_date:
+the first 2 lines used to verify the data are sorted or not are removed
+    # ensure sale_dt is datetime and data sorted by patient + date
+    op_df['sale_dt'] = pd.to_datetime(op_df['sale_dt'], errors='coerce')
+    op_df = op_df.sort_values(['entrp_ptnt_id', 'sale_dt']).reset_index(drop=True)
+
+    # forward-fill the datetime eff_dt within each patient
+    eff_dt_dt = op_df.groupby('entrp_ptnt_id')[eff_dt_dt.name].ffill().reindex(op_df.index)
+    # The above line uses reindex to ensure alignment; if pandas version complains, use:
+    # eff_dt_dt = eff_dt_dt.groupby(op_df['entrp_ptnt_id']).ffill()
+
+    # build final eff_dt: "Unknown" for unknown_mask else date part of eff_dt_dt
+
+from previous_store_nbr this was removed
+    # Sort data to guarantee correct ordering
+    op_df = op_df.sort_values(['entrp_ptnt_id', 'sale_dt']).reset_index(drop=True)    
+
+
+final output cell:
+3) Build mask: keep row if first for patient OR recent_status changed OR store_nbr changed    
+.
+.
+.
+<p class="kpi-description">Count of all unique patients in the dataset</p>
+<p class="kpi-description">Patients with most recent status as Active</p>
+<p class="kpi-description">Recently New patients, newly engaged</p>
+<p class="kpi-description">Recently Reactivated, successful win-backs</p>.
+/
+/
+/
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Status Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>Patient Status Analytics Dashboard</h1>
+        </header>
+
+        <!-- Top Section: Chart and KPI Cards -->
+        <section class="top-section">
+            <!-- Left: Patient Status Distribution Chart -->
+            <div class="chart-card left-chart">
+                <h3 class="chart-title">Patient Status Distribution</h3>
+                <div id="statusPieChart"></div>
+            </div>
+
+            <!-- Right: KPI Cards Grid -->
+            <div class="kpi-grid">
+                <div class="kpi-card-compact primary">
+                    <h3>Total Patients</h3>
+                    <p class="kpi-value">{{ kpis.total_patients }}</p>
+                </div>
+
+                <div class="kpi-card-compact success">
+                    <h3>Currently Active Patients</h3>
+                    <p class="kpi-value">{{ kpis.currently_active }}</p>
+                </div>
+
+                <div class="kpi-card-compact info">
+                    <h3>Newly Engaged Patients</h3>
+                    <p class="kpi-value">{{ kpis.newly_engaged }}</p>
+                </div>
+
+                <div class="kpi-card-compact warning">
+                    <h3>Reactivated Patients</h3>
+                    <p class="kpi-value">{{ kpis.reactivated_patients }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="chart-container">
+                <div class="chart-card">
+                    <h3 class="chart-title">Recent Status Breakdown</h3>
+                    <div id="recentStatusBarChart"></div>
+                </div>
+
+                <div class="chart-card">
+                    <h3 class="chart-title">Top 10 Stores by Patient Activity</h3>
+                    <div id="storeBarChart"></div>
+                </div>
+            </div>
+
+            <div class="chart-container single">
+                <div class="chart-card wide">
+                    <h3 class="chart-title">Status Transition Timeline</h3>
+                    <div id="transitionTimeline"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>
