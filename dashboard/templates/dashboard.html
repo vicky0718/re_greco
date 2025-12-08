@@ -11,9 +11,22 @@
     <div class="dashboard-container">
         <!-- Header -->
         <header class="dashboard-header">
-            <h1>Patient Status Analytics Dashboard</h1>
+            <img src="{{ url_for('static', filename='images/Walmart.png') }}" class="header-logo"/>
+            <h1>Walmart Patient Status Dashboard</h1>
+            <div class="header-controls">
+                <button id="viewToggleBtn" class="btn btn-toggle">
+                    <span id="viewIcon">📊</span>
+                    <span id="viewText">Database View</span>
+                </button>
+                <button id="printBtn" class="btn btn-print" onclick="window.print()">
+                    <span>🖨️</span>
+                    <span>Print</span>
+                </button>
+            </div>
         </header>
 
+        <!-- Dashboard View -->
+        <div id="dashboardView" class="view-content active-view">
         <!-- Main Section: Chart (Left) and KPI Cards (Right) -->
         <section class="main-section">
             <!-- Left Side: Patient Status Distribution Chart -->
@@ -56,7 +69,7 @@
             </div>
 
             <div class="chart-card">
-                <h3 class="chart-title">Top 10 Stores by Patient Activity</h3>
+                <h3 class="chart-title">Top 10 Stores previously visited by Patients    </h3>
                 <div id="storeBarChart"></div>
             </div>
         </section>
@@ -71,7 +84,22 @@
         <!-- Data Table Section -->
         <section class="data-table-section">
             <div class="table-card">
-                <h3 class="table-title">Output Dataset</h3>
+                <div class="table-header-with-filter">
+                    <h3 class="table-title">Dim_Patient_Status Dataset</h3>
+                    <div class="filter-controls">
+                        <label for="filterType" style="font-size: 0.875rem; color: #6b7280; font-weight: 500;">Filter by:</label>
+                        <select id="filterType" class="filter-select">
+                            <option value="">-- Select Filter --</option>
+                            <option value="patient_id">Patient ID</option>
+                            <option value="status">Status</option>
+                            <option value="recent_status">Recent Status</option>
+                        </select>
+                        <select id="filterValue" class="filter-select" disabled>
+                            <option value="">-- Select Value --</option>
+                        </select>
+                        <button id="clearFilterBtn" class="btn-clear-filter" style="display: none;">Clear</button>
+                    </div>
+                </div>
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
@@ -84,7 +112,7 @@
                                 <th>Previous Store</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="patientStatusTableBody">
                             {% for row in table_data %}
                             <tr>
                                 <td>{{ row.entrp_ptnt_id }}</td>
@@ -100,8 +128,367 @@
                 </div>
             </div>
         </section>
+        </div>
+
+        <!-- Database View (hidden by default) -->
+        <div id="databaseView" class="view-content">
+            <section class="data-table-section full-database-view">
+                <div class="table-card">
+                    <div class="table-header-with-filter">
+                        <h3 class="table-title">
+                            Processed Patient Data 
+                            <span id="rowCount" style="font-size: 0.875rem; color: #6b7280; font-weight: 400;"></span>
+                        </h3>
+                        <div class="filter-controls">
+                            <label for="databaseFilterType" style="font-size: 0.875rem; color: #6b7280; font-weight: 500;">Filter by:</label>
+                            <select id="databaseFilterType" class="filter-select">
+                                <option value="">-- Select Filter --</option>
+                            </select>
+                            <select id="databaseFilterValue" class="filter-select" disabled>
+                                <option value="">-- Select Value --</option>
+                            </select>
+                            <button id="databaseClearFilterBtn" class="btn-clear-filter" style="display: none;">Clear</button>
+                        </div>
+                    </div>
+                    <div class="table-container database-table-container">
+                        <div id="loadingMessage" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            Loading data...
+                        </div>
+                        <table class="data-table" id="processedDataTable" style="display: none;">
+                            <thead id="tableHead">
+                                <!-- Headers will be populated dynamically -->
+                            </thead>
+                            <tbody id="processedTableBody">
+                                <!-- Data will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script>
+        // Load processed table data
+        let processedDataLoaded = false;
+        
+        async function loadProcessedData() {
+            if (processedDataLoaded) return;
+            
+            try {
+                const response = await fetch('/api/processed-table');
+                const result = await response.json();
+                
+                if (result.error) {
+                    document.getElementById('loadingMessage').innerHTML = 
+                        `<div style="color: #ef4444;">Error: ${result.error}</div>`;
+                    return;
+                }
+                
+                // Populate table headers
+                const thead = document.getElementById('tableHead');
+                const headerRow = document.createElement('tr');
+                result.columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                
+                // Populate table body
+                const tbody = document.getElementById('processedTableBody');
+                result.data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    result.columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col] !== 'nan' && row[col] !== 'NaT' ? row[col] : 'N/A';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                
+                // Update row count
+                document.getElementById('rowCount').textContent = `(${result.total_rows} rows)`;
+                
+                // Show table and hide loading message
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('processedDataTable').style.display = 'table';
+                
+                processedDataLoaded = true;
+                
+                // Initialize filter functionality for database view
+                initializeDatabaseFilter();
+            } catch (error) {
+                console.error('Error loading processed data:', error);
+                document.getElementById('loadingMessage').innerHTML = 
+                    `<div style="color: #ef4444;">Error loading data: ${error.message}</div>`;
+            }
+        }
+        
+        // Initialize table filter functionality
+        function initializeTableFilter() {
+            const filterTypeSelect = document.getElementById('filterType');
+            const filterValueSelect = document.getElementById('filterValue');
+            const clearFilterBtn = document.getElementById('clearFilterBtn');
+            const tbody = document.getElementById('patientStatusTableBody');
+            
+            // Populate filter value options when filter type changes
+            filterTypeSelect.addEventListener('change', function() {
+                const filterType = this.value;
+                filterValueSelect.innerHTML = '<option value="">-- Select Value --</option>';
+                
+                if (!filterType) {
+                    filterValueSelect.disabled = true;
+                    clearFilterBtn.style.display = 'none';
+                    return;
+                }
+                
+                // Get unique values from the table based on filter type
+                const uniqueValues = new Set();
+                const rows = tbody.getElementsByTagName('tr');
+                
+                for (let row of rows) {
+                    let value = '';
+                    if (filterType === 'patient_id') {
+                        value = row.cells[0].textContent.trim();
+                    } else if (filterType === 'status') {
+                        value = row.cells[2].textContent.trim();
+                    } else if (filterType === 'recent_status') {
+                        value = row.cells[3].textContent.trim();
+                    }
+                    if (value && value !== 'N/A') {
+                        uniqueValues.add(value);
+                    }
+                }
+                
+                // Sort and add options
+                const sortedValues = Array.from(uniqueValues).sort();
+                sortedValues.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    filterValueSelect.appendChild(option);
+                });
+                
+                filterValueSelect.disabled = false;
+            });
+            
+            // Apply filter when value changes
+            filterValueSelect.addEventListener('change', function() {
+                applyTableFilter();
+            });
+            
+            // Clear filter button
+            clearFilterBtn.addEventListener('click', function() {
+                filterTypeSelect.value = '';
+                filterValueSelect.innerHTML = '<option value="">-- Select Value --</option>';
+                filterValueSelect.disabled = true;
+                clearFilterBtn.style.display = 'none';
+                applyTableFilter();
+            });
+        }
+        
+        // Apply filter to table rows
+        function applyTableFilter() {
+            const filterType = document.getElementById('filterType').value;
+            const filterValue = document.getElementById('filterValue').value;
+            const clearFilterBtn = document.getElementById('clearFilterBtn');
+            const tbody = document.getElementById('patientStatusTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            
+            // Show/hide clear button
+            if (filterType && filterValue) {
+                clearFilterBtn.style.display = 'inline-block';
+            } else {
+                clearFilterBtn.style.display = 'none';
+            }
+            
+            // Filter rows
+            let visibleCount = 0;
+            for (let row of rows) {
+                if (!filterType || !filterValue) {
+                    row.style.display = '';
+                    visibleCount++;
+                    continue;
+                }
+                
+                let cellValue = '';
+                if (filterType === 'patient_id') {
+                    cellValue = row.cells[0].textContent.trim();
+                } else if (filterType === 'status') {
+                    cellValue = row.cells[2].textContent.trim();
+                } else if (filterType === 'recent_status') {
+                    cellValue = row.cells[3].textContent.trim();
+                }
+                
+                if (cellValue === filterValue) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+        
+        // Initialize database table filter functionality
+        function initializeDatabaseFilter() {
+            const filterTypeSelect = document.getElementById('databaseFilterType');
+            const filterValueSelect = document.getElementById('databaseFilterValue');
+            const clearFilterBtn = document.getElementById('databaseClearFilterBtn');
+            const tbody = document.getElementById('processedTableBody');
+            const tableHead = document.getElementById('tableHead');
+            
+            // Get column names from table headers
+            const headers = [];
+            const headerCells = tableHead.getElementsByTagName('th');
+            for (let i = 0; i < headerCells.length; i++) {
+                headers.push(headerCells[i].textContent.trim());
+            }
+            
+            // Populate filter type dropdown with column names
+            headers.forEach(header => {
+                const option = document.createElement('option');
+                option.value = header;
+                option.textContent = header;
+                filterTypeSelect.appendChild(option);
+            });
+            
+            // Populate filter value options when filter type changes
+            filterTypeSelect.addEventListener('change', function() {
+                const filterType = this.value;
+                filterValueSelect.innerHTML = '<option value="">-- Select Value --</option>';
+                
+                if (!filterType) {
+                    filterValueSelect.disabled = true;
+                    clearFilterBtn.style.display = 'none';
+                    return;
+                }
+                
+                // Get the column index for the selected filter type
+                const columnIndex = headers.indexOf(filterType);
+                if (columnIndex === -1) {
+                    filterValueSelect.disabled = true;
+                    return;
+                }
+                
+                // Get unique values from the selected column
+                const uniqueValues = new Set();
+                const rows = tbody.getElementsByTagName('tr');
+                
+                for (let row of rows) {
+                    if (columnIndex < row.cells.length) {
+                        const value = row.cells[columnIndex].textContent.trim();
+                        if (value && value !== 'N/A') {
+                            uniqueValues.add(value);
+                        }
+                    }
+                }
+                
+                // Sort and add options
+                const sortedValues = Array.from(uniqueValues).sort();
+                sortedValues.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    filterValueSelect.appendChild(option);
+                });
+                
+                filterValueSelect.disabled = false;
+            });
+            
+            // Apply filter when value changes
+            filterValueSelect.addEventListener('change', function() {
+                applyDatabaseTableFilter();
+            });
+            
+            // Clear filter button
+            clearFilterBtn.addEventListener('click', function() {
+                filterTypeSelect.value = '';
+                filterValueSelect.innerHTML = '<option value="">-- Select Value --</option>';
+                filterValueSelect.disabled = true;
+                clearFilterBtn.style.display = 'none';
+                applyDatabaseTableFilter();
+            });
+        }
+        
+        // Apply filter to database table rows
+        function applyDatabaseTableFilter() {
+            const filterTypeSelect = document.getElementById('databaseFilterType');
+            const filterValueSelect = document.getElementById('databaseFilterValue');
+            const clearFilterBtn = document.getElementById('databaseClearFilterBtn');
+            const tableHead = document.getElementById('tableHead');
+            const tbody = document.getElementById('processedTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            
+            // Get headers
+            const headers = [];
+            const headerCells = tableHead.getElementsByTagName('th');
+            for (let i = 0; i < headerCells.length; i++) {
+                headers.push(headerCells[i].textContent.trim());
+            }
+            
+            const filterType = filterTypeSelect.value;
+            const filterValue = filterValueSelect.value;
+            const columnIndex = headers.indexOf(filterType);
+            
+            // Show/hide clear button
+            if (filterType && filterValue) {
+                clearFilterBtn.style.display = 'inline-block';
+            } else {
+                clearFilterBtn.style.display = 'none';
+            }
+            
+            // Filter rows
+            let visibleCount = 0;
+            for (let row of rows) {
+                if (!filterType || !filterValue) {
+                    row.style.display = '';
+                    visibleCount++;
+                    continue;
+                }
+                
+                let cellValue = '';
+                if (columnIndex >= 0 && columnIndex < row.cells.length) {
+                    cellValue = row.cells[columnIndex].textContent.trim();
+                }
+                
+                if (cellValue === filterValue) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+        
+        // View toggle functionality
+        document.getElementById('viewToggleBtn').addEventListener('click', function() {
+            const dashboardView = document.getElementById('dashboardView');
+            const databaseView = document.getElementById('databaseView');
+            const viewText = document.getElementById('viewText');
+            const viewIcon = document.getElementById('viewIcon');
+            
+            if (dashboardView.classList.contains('active-view')) {
+                // Switch to Database View
+                dashboardView.classList.remove('active-view');
+                databaseView.classList.add('active-view');
+                viewText.textContent = 'Dashboard View';
+                viewIcon.textContent = '📊';
+                
+                // Load processed data when switching to database view
+                loadProcessedData();
+            } else {
+                // Switch to Dashboard View
+                databaseView.classList.remove('active-view');
+                dashboardView.classList.add('active-view');
+                viewText.textContent = 'Database View';
+                viewIcon.textContent = '💾';
+            }
+        });
+        
+        // Initialize filter on page load
+        initializeTableFilter();
+    </script>
 </body>
 </html>

@@ -89,7 +89,7 @@ async function renderRecentStatusBarChart() {
                     width: 1
                 }
             },
-            text: data.values,
+            //text: data.values,
             textposition: 'outside',
             hovertemplate: '<b>%{x}</b><br>Count: %{y}<extra></extra>'
         };
@@ -129,7 +129,7 @@ async function renderStoreBarChart() {
                     width: 1
                 }
             },
-            text: data.values,
+            //text: data.values,
             textposition: 'outside',
             hovertemplate: '<b>%{x}</b><br>Patient Count: %{y}<extra></extra>'
         };
@@ -142,7 +142,7 @@ async function renderStoreBarChart() {
                 automargin: true
             },
             yaxis: {
-                title: 'Number of Patients',
+                title: 'Number of Visits',
                 gridcolor: '#e5e7eb'
             }
         };
@@ -166,6 +166,44 @@ async function renderTransitionTimeline() {
             return;
         }
         
+        // Build custom hover text with transition details
+        const hoverText = data.details.map(periodData => {
+            let hoverInfo = `<b>${periodData.period}</b><br>`;
+            hoverInfo += `Total Transitions: ${periodData.count}<br><br>`;
+            
+            // Group transitions by status change
+            const statusGroups = {};
+            periodData.transitions.forEach(t => {
+                const key = `${t.recent_status}`;
+                if (!statusGroups[key]) {
+                    statusGroups[key] = [];
+                }
+                statusGroups[key].push(t);
+            });
+            
+            // Add grouped transitions to hover text (limit to first 10)
+            let count = 0;
+            for (const [status, transitions] of Object.entries(statusGroups)) {
+                if (count >= 10) {
+                    hoverInfo += `<br>... and ${periodData.count - count} more`;
+                    break;
+                }
+                hoverInfo += `<b>${status}</b>: ${transitions.length} patient(s)<br>`;
+                
+                // Show first 3 patients for this status
+                transitions.slice(0, 3).forEach(t => {
+                    hoverInfo += `  • Patient ${t.patient_id} (${t.status})<br>`;
+                    count++;
+                });
+                
+                if (transitions.length > 3) {
+                    hoverInfo += `  ... and ${transitions.length - 3} more<br>`;
+                }
+            }
+            
+            return hoverInfo;
+        });
+        
         const trace = {
             x: data.labels,
             y: data.values,
@@ -186,7 +224,17 @@ async function renderTransitionTimeline() {
             },
             fill: 'tozeroy',
             fillcolor: 'rgba(102, 126, 234, 0.2)',
-            hovertemplate: '<b>%{x}</b><br>Transitions: %{y}<extra></extra>'
+            text: hoverText,
+            hovertemplate: '%{text}<extra></extra>',
+            hoverlabel: {
+                align: 'left',
+                bgcolor: 'white',
+                bordercolor: '#667eea',
+                font: {
+                    size: 11,
+                    family: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif'
+                }
+            }
         };
         
         const layout = {

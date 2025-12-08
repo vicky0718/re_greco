@@ -4,12 +4,18 @@ import os
 
 app = Flask(__name__)
 
-# Path to the output table
-DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status.xlsx')
+# Paths to data files
+OUTPUT_DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status.xlsx')
+PROCESSED_DATA_PATH = os.path.join('..', 'data', 'processed', 'processed_table.xlsx')
 
 def load_data():
     """Load and process the output table data"""
-    df = pd.read_excel(DATA_PATH)
+    df = pd.read_excel(OUTPUT_DATA_PATH)
+    return df
+
+def load_processed_data():
+    """Load the processed table data"""
+    df = pd.read_excel(PROCESSED_DATA_PATH)
     return df
 
 def calculate_kpis(df):
@@ -38,8 +44,16 @@ def get_status_distribution(df):
     }
 
 def get_recent_status_distribution(df):
-    """Get recent status distribution for bar chart"""
-    recent_status_counts = df['recent_status'].value_counts().to_dict()
+    """Get recent status distribution for bar chart based on latest patient status"""
+    # Get the latest record for each patient (sorted by effective date)
+    df_copy = df.copy()
+    df_copy['eff_dt'] = pd.to_datetime(df_copy['eff_dt'], errors='coerce')
+    
+    # Get the latest record for each patient
+    latest_records = df_copy.sort_values('eff_dt').groupby('entrp_ptnt_id').tail(1)
+    
+    # Count recent status from latest records only
+    recent_status_counts = latest_records['recent_status'].value_counts().to_dict()
     return {
         'labels': list(recent_status_counts.keys()),
         'values': list(recent_status_counts.values())
@@ -54,20 +68,45 @@ def get_store_distribution(df):
     }
 
 def get_transition_timeline(df):
-    """Get transition date distribution"""
+    """Get transition date distribution with detailed transition information"""
     df_copy = df.copy()
     df_copy['transition_dt'] = pd.to_datetime(df_copy['transition_dt'], errors='coerce')
-    df_filtered = df_copy[df_copy['transition_dt'].notna()]
+    df_filtered = df_copy[df_copy['transition_dt'].notna()].copy()
     
     if df_filtered.empty:
-        return {'labels': [], 'values': []}
+        return {'labels': [], 'values': [], 'details': []}
     
+    # Sort by patient and transition date
+    df_filtered = df_filtered.sort_values(['entrp_ptnt_id', 'transition_dt'])
+    
+    # Add year_month for grouping
     df_filtered['year_month'] = df_filtered['transition_dt'].dt.to_period('M').astype(str)
-    timeline_counts = df_filtered['year_month'].value_counts().sort_index().to_dict()
+    
+    # Group by year_month and collect transition details
+    timeline_data = []
+    for period in sorted(df_filtered['year_month'].unique()):
+        period_data = df_filtered[df_filtered['year_month'] == period]
+        
+        # Collect transition details for this period
+        transitions = []
+        for _, row in period_data.iterrows():
+            transitions.append({
+                'patient_id': int(row['entrp_ptnt_id']),
+                'status': str(row['status']),
+                'recent_status': str(row['recent_status']),
+                'transition_date': row['transition_dt'].strftime('%Y-%m-%d')
+            })
+        
+        timeline_data.append({
+            'period': period,
+            'count': len(transitions),
+            'transitions': transitions
+        })
     
     return {
-        'labels': list(timeline_counts.keys()),
-        'values': list(timeline_counts.values())
+        'labels': [item['period'] for item in timeline_data],
+        'values': [item['count'] for item in timeline_data],
+        'details': timeline_data
     }
 
 @app.route('/')
@@ -109,6 +148,24 @@ def api_transition_timeline():
     df = load_data()
     data = get_transition_timeline(df)
     return jsonify(data)
+
+@app.route('/api/processed-table')
+def api_processed_table():
+    """API endpoint for processed table data"""
+    try:
+        df = load_processed_data()
+        # Convert dataframe to list of dictionaries
+        # Convert all columns to string to handle various data types
+        df_string = df.astype(str)
+        data = df_string.to_dict('records')
+        columns = list(df.columns)
+        return jsonify({
+            'columns': columns,
+            'data': data,
+            'total_rows': len(data)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
