@@ -5,8 +5,8 @@ import os
 app = Flask(__name__)
 
 # Paths to data files
-OUTPUT_DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status.xlsx')
-PROCESSED_DATA_PATH = os.path.join('..', 'data', 'processed', 'processed_table.xlsx')
+OUTPUT_DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status2.xlsx')
+PROCESSED_DATA_PATH = os.path.join('..', 'data', 'processed', 'processed_table2.xlsx')
 
 def load_data():
     """Load and process the output table data"""
