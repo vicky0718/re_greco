@@ -5,8 +5,8 @@ import os
 app = Flask(__name__)
 
 # Paths to data files
-OUTPUT_DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status2.xlsx')
-PROCESSED_DATA_PATH = os.path.join('..', 'data', 'processed', 'processed_table2.xlsx')
+OUTPUT_DATA_PATH = os.path.join('..', 'data', 'processed', 'dim_patient_status3.xlsx')
+PROCESSED_DATA_PATH = os.path.join('..', 'data', 'processed', 'processed_table3.xlsx')
 
 def load_data():
     """Load and process the output table data"""
@@ -36,8 +36,16 @@ def calculate_kpis(df):
     return kpis
 
 def get_status_distribution(df):
-    """Get status distribution for pie chart"""
-    status_counts = df['status'].value_counts().to_dict()
+    """Get status distribution for pie chart based on latest patient status"""
+    # Get the latest record for each patient (sorted by effective date)
+    df_copy = df.copy()
+    df_copy['eff_dt'] = pd.to_datetime(df_copy['eff_dt'], errors='coerce')
+
+    # Get the latest record for each patient
+    latest_records = df_copy.sort_values('eff_dt').groupby('entrp_ptnt_id').tail(1)
+
+    # Count status from latest records only
+    status_counts = latest_records['status'].value_counts().to_dict()
     return {
         'labels': list(status_counts.keys()),
         'values': list(status_counts.values())

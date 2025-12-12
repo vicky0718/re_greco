@@ -102,3 +102,19 @@ final output cell:
     <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 </body>
 </html>
+
+
+"""
+    Add status and recent_status based on gaps between purchases,
+    inserting synthetic rows:
+      - between purchases (at +111 / +366 / +1096 days, if before next purchase and <= as_of_date)
+      - AFTER the last purchase, at:
+          +111 / +366 / +1096 days (if <= as_of_date)
+          AND one final row exactly at as_of_date (if > last_purchase_date)
+
+    Synthetic (no-purchase) rows use:
+      - status = Inactive / Lapsed / Lost based on range
+      - recent_status = 'Inactive Continuing'
+
+    Dummy rows (status='Unknown' & recent_status is NA) are preserved as-is.
+    """
